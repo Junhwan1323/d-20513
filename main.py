@@ -212,3 +212,57 @@ st.plotly_chart(fig_bar, use_container_width=True)
 
 # 그래프 설명 문구
 st.info("💡 **이 그래프로 알 수 있는 것:** 연중 어떤 월에 극장 방문 관객수가 가장 많았는지(성수기)와 상대적으로 관객수가 적었던 월(비성수기)의 월별 총 관객 규모를 한눈에 비교할 수 있습니다.")
+
+st.divider()
+
+# ---------------------------------------------------------
+# [구역 6] 주차/월별 × 요일별 관객수 분포 (캘린더 히트맵)
+# ---------------------------------------------------------
+st.header("🗓️ 주차 및 요일별 관객수 히트맵")
+
+# 1. 히트맵 전용 파생 변수 생성
+heatmap_df = daily_total.copy()
+
+# 요일명 추출 및 월요일~일요일 순서 정렬 지정
+day_names_kr = ["월", "화", "수", "목", "금", "토", "일"]
+heatmap_df["요일"] = heatmap_df["기준일자"].dt.weekday.map(
+    lambda x: day_names_kr[x]
+)
+
+# 주차(ISO Week / 연-주차) 및 날짜 문자열 변환
+heatmap_df["연주차"] = heatmap_df["기준일자"].dt.strftime("%Y-%W주차")
+heatmap_df["날짜문자열"] = heatmap_df["기준일자"].dt.strftime("%Y-%m-%d")
+
+# 2. Plotly 히트맵 생성 (px.density_heatmap)
+fig_heatmap = px.density_heatmap(
+    heatmap_df,
+    x="연주차",
+    y="요일",
+    z="해당일관객수",
+    category_orders={"요일": day_names_kr},  # 요일을 월요일부터 일요일 순으로 정렬
+    color_continuous_scale="Reds",  # 관객수가 많을수록 진한 빨간색
+    title="주차별 × 요일별 전체 박스오피스 관객수 분포",
+    labels={
+        "연주차": "연도별 주차",
+        "요일": "요일",
+        "해당일관객수": "총 관객수(명)",
+    },
+    hover_data={"날짜문자열": True, "연주차": False},  # 마우스 오버 시 yyyy-mm-dd 표시
+)
+
+# 호버 툴팁(마우스 올렸을 때) 레이아웃 다듬기
+fig_heatmap.update_traces(
+    hovertemplate="<b>날짜: %{customdata[0]}</b><br>요일: %{y}<br>관객수: %{z:,.0f}명<extra></extra>"
+)
+
+fig_heatmap.update_layout(
+    xaxis_title="연도-주차",
+    yaxis_title="요일",
+    coloraxis_colorbar=dict(title="관객수(명)"),
+)
+
+# 그래프 화면 출력
+st.plotly_chart(fig_heatmap, use_container_width=True)
+
+# 그래프 설명 문구
+st.info("💡 **이 그래프로 알 수 있는 것:** 주말(토·일)과 평일 간의 명확한 관객수 격차뿐만 아니라 연휴나 명절 등 특수 시기에 관객수가 크게 증가한 특정 날짜(yyyy-mm-dd)를 한눈에 식별할 수 있습니다.")
