@@ -40,7 +40,7 @@ st.write("1년간 박스오피스 10위권에 든 개봉 영화 216편의 흥행
 st.markdown("---")
 
 # 4. 첫 번째 그래프: 장르별 영화 편수 (도넛 그래프)
-st.subheader("📌 장르별 영화 편수 비율")
+st.subheader("📌 1. 장르별 영화 편수 비율")
 
 # 장르별 영화 수 집계
 genre_counts = df['genre'].value_counts().reset_index()
@@ -56,7 +56,6 @@ fig_donut = px.pie(
     color_discrete_sequence=px.colors.qualitative.Pastel
 )
 
-# 마우스오버 툴팁 포맷 설정
 fig_donut.update_traces(
     textposition='inside',
     textinfo='percent+label',
@@ -71,28 +70,25 @@ fig_donut.update_layout(
 
 st.plotly_chart(fig_donut, use_container_width=True)
 
-# 인사이트 구역 1
 st.divider()
 st.info("💡 **이 그래프로 알 수 있는 것**\n\n- 박스오피스 10위권 내 영화 중 가장 비중이 높은 주력 장르가 무엇인지 한눈에 파악할 수 있으며, 특정 장르로의 쏠림 현상이나 다양한 장르의 분포 상태를 명확하게 관찰할 수 있습니다.")
 
 st.markdown("---")
 
-# 5. 두 번째 그래프: 장르-영화 트리맵 (총 관객수 기준)
-st.subheader("📌 장르 및 영화별 총 관객수 분포 (트리맵)")
+# 5. 두 번째 그래프: 장르 및 영화별 총 관객수 (트리맵)
+st.subheader("📌 2. 장르 및 영화별 총 관객수 (트리맵)")
 
-# 트리맵 생성: 장르 > 영화명 계층 구조, 타일 크기는 total_audi
 fig_treemap = px.treemap(
     df,
     path=[px.Constant("전체 영화"), 'genre', 'movieNm'],
     values='total_audi',
     color='genre',
-    title='장르별 및 영화별 총 관객수(total_audi) 분포',
-    color_discrete_sequence=px.colors.qualitative.Set3
+    color_discrete_sequence=px.colors.qualitative.Pastel,
+    title='장르 및 영화별 총 관객수 기여도'
 )
 
-# 호버 툴팁 설정: 영화명 및 총 관객수(천단위 콤마 포맷) 표시
 fig_treemap.update_traces(
-    hovertemplate="<b>영화명:</b> %{label}<br><b>총 관객수:</b> %{value:,.0f}명<extra></extra>"
+    hovertemplate="<b>영화명:</b> %{label}<br><b>총 관객수:</b> %{value:,}명<extra></extra>"
 )
 
 fig_treemap.update_layout(
@@ -102,6 +98,53 @@ fig_treemap.update_layout(
 
 st.plotly_chart(fig_treemap, use_container_width=True)
 
-# 인사이트 구역 2
 st.divider()
-st.info("💡 **이 그래프로 알 수 있는 것**\n\n- 편수가 많은 장르라 하더라도 특정 대작 영화 한 두 편이 해당 장르 전체 관객수의 대부분을 차지하는지, 혹은 장르 내 여러 영화가 고르게 관객을 모았는지 흥행 집중도를 파악할 수 있습니다.")
+st.info("💡 **이 그래프로 알 수 있는 것**\n\n- 장르 전체의 관객 규모뿐만 아니라, 특정 장르 안에서 어떤 영화가 전체 관객수의 흥행을 주도했는지(타일의 크기)를 직관적으로 비교할 수 있습니다.")
+
+st.markdown("---")
+
+# 6. 세 번째 그래프: 총 관객수 분포 (히스토그램)
+st.subheader("📌 3. 영화별 총 관객수 분포 (히스토그램)")
+
+# 히스토그램 생성
+fig_hist = px.histogram(
+    df,
+    x='total_audi',
+    nbins=20,
+    title='총 관객수 구간별 영화 편수 분포',
+    labels={'total_audi': '총 관객수(명)', 'count': '영화 수'},
+    color_discrete_sequence=['#4A90E2']
+)
+
+fig_hist.update_traces(
+    hovertemplate="<b>관객수 구간:</b> %{x}명<br><b>영화 수:</b> %{y}편<extra></extra>"
+)
+
+fig_hist.update_layout(
+    title_font_size=18,
+    xaxis_title="총 관객수 (명)",
+    yaxis_title="영화 수 (편)",
+    bargap=0.1,
+    margin=dict(t=50, b=20, l=20, r=20)
+)
+
+st.plotly_chart(fig_hist, use_container_width=True)
+
+# 최다 관객 영화 찾기
+top_movie = df.loc[df['total_audi'].idxmax()]
+top_movie_name = top_movie['movieNm']
+top_movie_audi = top_movie['total_audi']
+
+# 구간 밀집도 계산 (50만명 이하 구간 밀집 여부 파악)
+most_dense_count = df[df['total_audi'] <= 1000000].shape[0]
+total_movies_count = len(df)
+dense_percent = round((most_dense_count / total_movies_count) * 100, 1)
+
+# 히스토그램 하단 안내 문구 출력
+st.markdown(f"""
+- 🏆 **가장 관객이 많은 영화:** **{top_movie_name}** ({top_movie_audi:,.0f}명)
+- 📊 **영화 밀집 구간:** 전체 영화의 **{dense_percent}%**({most_dense_count}편)가 **총 관객수 100만 명 이하** 구간에 몰려 있으며, 극소수의 대형 흥행작(천만 관객 이상 등)이 전체 데이터를 오른쪽으로 길게 늘어뜨리는 불균형한 분포 형태를 보입니다.
+""")
+
+st.divider()
+st.info("💡 **이 그래프로 알 수 있는 것**\n\n- 흥행에 성공하는 상위 대형 영화의 수에 비해 대부분의 개봉작들이 형성하는 현실적인 관객수 규모 구간이 어디인지를 명확하게 파악할 수 있습니다.")
