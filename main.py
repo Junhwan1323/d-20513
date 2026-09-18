@@ -17,10 +17,12 @@ def load_data():
     df = pd.read_csv(DATA_URL)
     
     # genre 열 전처리: 세로막대 기호(|)로 여러 개 적힌 영화는 첫 번째 장르만 사용
-    df['genre'] = df['genre'].astype(str).apply(lambda x: x.split('|')[0].strip() if pd.notna(x) and x != 'nan' else '기타')
+    df['genre'] = df['genre'].astype(str).apply(
+        lambda x: x.split('|')[0].strip() if pd.notna(x) and x != 'nan' else '기타'
+    )
     
-    # 개봉일(openDt) 날짜 데이터 타입 변환 (필요 시)
-    df['openDt'] = pd.to_datetime(df['openDt'].astype(str), format='%Y%m%m', errors='coerce')
+    # 개봉일(openDt) 날짜 데이터 타입 변환 (8자리 숫자 -> datetime 포맷 %Y%m%d)
+    df['openDt'] = pd.to_datetime(df['openDt'].astype(str), format='%Y%m%d', errors='coerce')
     
     return df
 
@@ -70,7 +72,7 @@ fig_donut.update_layout(
 # 그래프 출력
 st.plotly_chart(fig_donut, use_container_width=True)
 
-# 인사이트 구역 (구분선과 커스텀 스타일 박스)
+# 인사이트 구역 (구분선과 메시지 박스)
 st.divider()
 
-st.info("💡 **이 그래프로 알 수 있는 것**\n\n- 박스오피스 10위권 내 상위권 영화 중 가장 비중이 높은 주력 장르가 무엇인지 한눈에 파악할 수 있으며, 관객들의 장르 선호도 편중 현상을 쉽게 관찰할 수 있습니다.")
+st.info("💡 **이 그래프로 알 수 있는 것**\n\n- 박스오피스 10위권 내 영화 중 가장 비중이 높은 주력 장르가 무엇인지 한눈에 파악할 수 있으며, 특정 장르로의 쏠림 현상이나 다양한 장르의 분포 상태를 명확하게 관찰할 수 있습니다.")
