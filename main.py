@@ -42,11 +42,9 @@ st.markdown("---")
 # 4. 첫 번째 그래프: 장르별 영화 편수 (도넛 그래프)
 st.subheader("📌 1. 장르별 영화 편수 비율")
 
-# 장르별 영화 수 집계
 genre_counts = df['genre'].value_counts().reset_index()
 genre_counts.columns = ['genre', 'count']
 
-# Plotly 도넛 그래프 생성
 fig_donut = px.pie(
     genre_counts, 
     values='count', 
@@ -106,7 +104,6 @@ st.markdown("---")
 # 6. 세 번째 그래프: 총 관객수 분포 (히스토그램)
 st.subheader("📌 3. 영화별 총 관객수 분포 (히스토그램)")
 
-# 히스토그램 생성
 fig_hist = px.histogram(
     df,
     x='total_audi',
@@ -140,7 +137,6 @@ most_dense_count = df[df['total_audi'] <= 1000000].shape[0]
 total_movies_count = len(df)
 dense_percent = round((most_dense_count / total_movies_count) * 100, 1)
 
-# 히스토그램 하단 안내 문구 출력
 st.markdown(f"""
 - 🏆 **가장 관객이 많은 영화:** **{top_movie_name}** ({top_movie_audi:,.0f}명)
 - 📊 **영화 밀집 구간:** 전체 영화의 **{dense_percent}%**({most_dense_count}편)가 **총 관객수 100만 명 이하** 구간에 몰려 있으며, 극소수의 대형 흥행작(천만 관객 이상 등)이 전체 데이터를 오른쪽으로 길게 늘어뜨리는 불균형한 분포 형태를 보입니다.
@@ -186,3 +182,45 @@ st.plotly_chart(fig_scatter, use_container_width=True)
 
 st.divider()
 st.info("💡 **이 그래프로 알 수 있는 것**\n\n- 초기 스크린 확보 수(개봉일 스크린수)가 최종 관객 수 흥행에 결정적인 양의 영향을 미치는지, 스크린 수가 적어도 입소문을 통해 대역전에 성공한 영화가 존재하는지 등의 상관관계를 시각적으로 분석할 수 있습니다.")
+
+st.markdown("---")
+
+# 8. 다섯 번째 그래프: 영화 10편 이상인 장르별 총 관객수 상자 그림 (박스플롯)
+st.subheader("📌 5. 주요 장르별 총 관객수 분포 (박스플롯)")
+
+# 영화가 10편 이상인 장르 필터링
+genre_counts_series = df['genre'].value_counts()
+major_genres = genre_counts_series[genre_counts_series >= 10].index
+df_major_genres = df[df['genre'].isin(major_genres)].copy()
+
+fig_box = px.box(
+    df_major_genres,
+    x='genre',
+    y='total_audi',
+    color='genre',
+    points='outliers',  # 이상치 점만 표시
+    hover_name='movieNm',
+    title='영화 10편 이상 장르의 관객수 분포 및 이상치(대박작)',
+    labels={
+        'genre': '장르',
+        'total_audi': '총 관객수 (명)'
+    },
+    color_discrete_sequence=px.colors.qualitative.Set2
+)
+
+fig_box.update_traces(
+    hovertemplate="<b>영화명:</b> %{hovertext}<br><b>장르:</b> %{x}<br><b>총 관객수:</b> %{y:,}명<extra></extra>"
+)
+
+fig_box.update_layout(
+    title_font_size=18,
+    xaxis_title="장르 (영화 10편 이상)",
+    yaxis_title="총 관객수 (명)",
+    showlegend=False,
+    margin=dict(t=50, b=20, l=20, r=20)
+)
+
+st.plotly_chart(fig_box, use_container_width=True)
+
+st.divider()
+st.info("💡 **이 그래프로 알 수 있는 것**\n\n- 주요 장르별 흥행의 중간값과 안정적인 흥행 범위(박스의 높이)를 파악할 수 있으며, 박스 위로 멀리 떨어진 이상치(Outlier) 점에 마우스를 올려 동일 장르 내에서 독보적인 흥행 성적을 거둔 초대형 대박 영화가 무엇인지 확인할 수 있습니다.")
