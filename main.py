@@ -188,7 +188,6 @@ st.markdown("---")
 # 8. 다섯 번째 그래프: 영화 10편 이상인 장르별 총 관객수 상자 그림 (박스플롯)
 st.subheader("📌 5. 주요 장르별 총 관객수 분포 (박스플롯)")
 
-# 영화가 10편 이상인 장르 필터링
 genre_counts_series = df['genre'].value_counts()
 major_genres = genre_counts_series[genre_counts_series >= 10].index
 df_major_genres = df[df['genre'].isin(major_genres)].copy()
@@ -198,7 +197,7 @@ fig_box = px.box(
     x='genre',
     y='total_audi',
     color='genre',
-    points='outliers',  # 이상치 점만 표시
+    points='outliers',
     hover_name='movieNm',
     title='영화 10편 이상 장르의 관객수 분포 및 이상치(대박작)',
     labels={
@@ -224,3 +223,45 @@ st.plotly_chart(fig_box, use_container_width=True)
 
 st.divider()
 st.info("💡 **이 그래프로 알 수 있는 것**\n\n- 주요 장르별 흥행의 중간값과 안정적인 흥행 범위(박스의 높이)를 파악할 수 있으며, 박스 위로 멀리 떨어진 이상치(Outlier) 점에 마우스를 올려 동일 장르 내에서 독보적인 흥행 성적을 거둔 초대형 대박 영화가 무엇인지 확인할 수 있습니다.")
+
+st.markdown("---")
+
+# 9. 여섯 번째 그래프: 개봉일 스크린수 vs 총 관객수 & 첫 주 관객수 (버블 차트)
+st.subheader("📌 6. 스크린수, 총 관객수, 첫 주 관객수의 다차원 관계 (버블 차트)")
+
+fig_bubble = px.scatter(
+    df,
+    x='first_scrn',
+    y='total_audi',
+    size='first_week_audi',
+    color='genre',
+    hover_name='movieNm',
+    size_max=40,
+    title='개봉일 스크린수 vs 총 관객수 (버블 크기: 첫 주 관객수)',
+    labels={
+        'first_scrn': '개봉일 스크린수 (개)',
+        'total_audi': '총 관객수 (명)',
+        'first_week_audi': '첫 주 관객수 (명)',
+        'genre': '장르'
+    },
+    custom_data=['first_week_audi'],
+    color_discrete_sequence=px.colors.qualitative.Dark24
+)
+
+fig_bubble.update_traces(
+    marker=dict(opacity=0.7),
+    hovertemplate="<b>영화명:</b> %{hovertext}<br><b>장르:</b> %{fullData.name}<br><b>개봉일 스크린수:</b> %{x:,}개<br><b>총 관객수:</b> %{y:,}명<br><b>첫 주 관객수:</b> %{customdata[0]:,}명<extra></extra>"
+)
+
+fig_bubble.update_layout(
+    title_font_size=18,
+    xaxis_title="개봉일 스크린수 (개)",
+    yaxis_title="총 관객수 (명)",
+    legend_title_text="장르",
+    margin=dict(t=50, b=20, l=20, r=20)
+)
+
+st.plotly_chart(fig_bubble, use_container_width=True)
+
+st.divider()
+st.info("💡 **이 그래프로 알 수 있는 것**\n\n- 개봉일 스크린수와 최종 총 관객수의 관계뿐만 아니라, 버블의 크기(첫 주 관객수)를 통해 초반 흥행 화력(개봉 첫 주)이 좋았던 영화가 최종 장기 흥행 성공으로 이어진 경향을 세 가지 다차원 요소로 함께 비교·분석할 수 있습니다.")
