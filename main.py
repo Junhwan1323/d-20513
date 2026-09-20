@@ -135,7 +135,7 @@ top_movie = df.loc[df['total_audi'].idxmax()]
 top_movie_name = top_movie['movieNm']
 top_movie_audi = top_movie['total_audi']
 
-# 구간 밀집도 계산 (50만명 이하 구간 밀집 여부 파악)
+# 구간 밀집도 계산
 most_dense_count = df[df['total_audi'] <= 1000000].shape[0]
 total_movies_count = len(df)
 dense_percent = round((most_dense_count / total_movies_count) * 100, 1)
@@ -148,3 +148,41 @@ st.markdown(f"""
 
 st.divider()
 st.info("💡 **이 그래프로 알 수 있는 것**\n\n- 흥행에 성공하는 상위 대형 영화의 수에 비해 대부분의 개봉작들이 형성하는 현실적인 관객수 규모 구간이 어디인지를 명확하게 파악할 수 있습니다.")
+
+st.markdown("---")
+
+# 7. 네 번째 그래프: 개봉일 스크린수 vs 총 관객수 (산점도)
+st.subheader("📌 4. 개봉일 스크린수와 총 관객수의 관계 (산점도)")
+
+fig_scatter = px.scatter(
+    df,
+    x='first_scrn',
+    y='total_audi',
+    color='genre',
+    hover_name='movieNm',
+    title='개봉일 스크린수 대비 최종 총 관객수',
+    labels={
+        'first_scrn': '개봉일 스크린수 (개)',
+        'total_audi': '총 관객수 (명)',
+        'genre': '장르'
+    },
+    color_discrete_sequence=px.colors.qualitative.Dark24
+)
+
+fig_scatter.update_traces(
+    marker=dict(size=10, opacity=0.8),
+    hovertemplate="<b>영화명:</b> %{hovertext}<br><b>장르:</b> %{fullData.name}<br><b>개봉일 스크린수:</b> %{x:,}개<br><b>총 관객수:</b> %{y:,}명<extra></extra>"
+)
+
+fig_scatter.update_layout(
+    title_font_size=18,
+    xaxis_title="개봉일 스크린수 (개)",
+    yaxis_title="총 관객수 (명)",
+    legend_title_text="장르",
+    margin=dict(t=50, b=20, l=20, r=20)
+)
+
+st.plotly_chart(fig_scatter, use_container_width=True)
+
+st.divider()
+st.info("💡 **이 그래프로 알 수 있는 것**\n\n- 초기 스크린 확보 수(개봉일 스크린수)가 최종 관객 수 흥행에 결정적인 양의 영향을 미치는지, 스크린 수가 적어도 입소문을 통해 대역전에 성공한 영화가 존재하는지 등의 상관관계를 시각적으로 분석할 수 있습니다.")
