@@ -21,6 +21,9 @@ def load_data():
         lambda x: x.split('|')[0].strip() if pd.notna(x) and x != 'nan' else '기타'
     )
     
+    # nation 열 전처리 (결측치 처리)
+    df['nation'] = df['nation'].fillna('기타')
+    
     # 개봉일(openDt) 날짜 데이터 타입 변환 (8자리 숫자 -> datetime 포맷 %Y%m%d)
     df['openDt'] = pd.to_datetime(df['openDt'].astype(str), format='%Y%m%d', errors='coerce')
     
@@ -265,3 +268,34 @@ st.plotly_chart(fig_bubble, use_container_width=True)
 
 st.divider()
 st.info("💡 **이 그래프로 알 수 있는 것**\n\n- 개봉일 스크린수와 최종 총 관객수의 관계뿐만 아니라, 버블의 크기(첫 주 관객수)를 통해 초반 흥행 화력(개봉 첫 주)이 좋았던 영화가 최종 장기 흥행 성공으로 이어진 경향을 세 가지 다차원 요소로 함께 비교·분석할 수 있습니다.")
+
+st.markdown("---")
+
+# 10. 일곱 번째 그래프: 제작 국가 -> 장르 선버스트 그래프
+st.subheader("📌 7. 제작 국가 및 장르별 영화 수 분포 (선버스트)")
+
+# 제작 국가 및 장르별 영화 수 집계
+nation_genre_df = df.groupby(['nation', 'genre']).size().reset_index(name='movie_count')
+
+fig_sunburst = px.sunburst(
+    nation_genre_df,
+    path=['nation', 'genre'],
+    values='movie_count',
+    title='제작 국가 ➔ 장르 계층별 영화 편수 분포',
+    color='nation',
+    color_discrete_sequence=px.colors.qualitative.Pastel
+)
+
+fig_sunburst.update_traces(
+    hovertemplate="<b>분류:</b> %{label}<br><b>영화 편수:</b> %{value}편<br><b>상위 계층 내 비율:</b> %{percentParent:.1%}<br><b>전체 대비 비율:</b> %{percentRoot:.1%}<extra></extra>"
+)
+
+fig_sunburst.update_layout(
+    title_font_size=18,
+    margin=dict(t=50, b=20, l=20, r=20)
+)
+
+st.plotly_chart(fig_sunburst, use_container_width=True)
+
+st.divider()
+st.info("💡 **이 그래프로 알 수 있는 것**\n\n- 영화를 주로 제작한 국가들의 비중(안쪽 고리)과 각 국가별로 어떤 장르의 영화(바깥쪽 고리)가 박스오피스 상위권에 집중되어 출시되었는지를 계층적으로 한눈에 비교할 수 있습니다.")
