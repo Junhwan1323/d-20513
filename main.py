@@ -274,7 +274,6 @@ st.markdown("---")
 # 10. 일곱 번째 그래프: 제작 국가 -> 장르 선버스트 그래프
 st.subheader("📌 7. 제작 국가 및 장르별 영화 수 분포 (선버스트)")
 
-# 제작 국가 및 장르별 영화 수 집계
 nation_genre_df = df.groupby(['nation', 'genre']).size().reset_index(name='movie_count')
 
 fig_sunburst = px.sunburst(
@@ -299,3 +298,41 @@ st.plotly_chart(fig_sunburst, use_container_width=True)
 
 st.divider()
 st.info("💡 **이 그래프로 알 수 있는 것**\n\n- 영화를 주로 제작한 국가들의 비중(안쪽 고리)과 각 국가별로 어떤 장르의 영화(바깥쪽 고리)가 박스오피스 상위권에 집중되어 출시되었는지를 계층적으로 한눈에 비교할 수 있습니다.")
+
+st.markdown("---")
+
+# 11. 여덟 번째 그래프: 10위권 머문 날수 vs 총 관객수 (산점도)
+st.subheader("📌 8. 10위권에 오래 머문 영화는 총 관객도 많은가")
+
+fig_top10_scatter = px.scatter(
+    df,
+    x='days_in_top10',
+    y='total_audi',
+    color='genre',
+    hover_name='movieNm',
+    title='10위권에 오래 머문 영화는 총 관객도 많은가',
+    labels={
+        'days_in_top10': '10위권에 머문 날수 (일)',
+        'total_audi': '총 관객수 (명)',
+        'genre': '장르'
+    },
+    color_discrete_sequence=px.colors.qualitative.Dark24
+)
+
+fig_top10_scatter.update_traces(
+    marker=dict(size=10, opacity=0.8),
+    hovertemplate="<b>영화명:</b> %{hovertext}<br><b>장르:</b> %{fullData.name}<br><b>10위권 머문 날수:</b> %{x}일<br><b>총 관객수:</b> %{y:,}명<extra></extra>"
+)
+
+fig_top10_scatter.update_layout(
+    title_font_size=18,
+    xaxis_title="10위권에 머문 날수 (일)",
+    yaxis_title="총 관객수 (명)",
+    legend_title_text="장르",
+    margin=dict(t=50, b=20, l=20, r=20)
+)
+
+st.plotly_chart(fig_top10_scatter, use_container_width=True)
+
+st.divider()
+st.info("💡 **이 그래프로 알 수 있는 것**\n\n- 박스오피스 TOP 10 상위권에 오래 유지된 기간(롱런 유지력)과 최종 누적 관객수 사이의 강한 비례 관계를 확인할 수 있으며, 단기 집중 흥행작과 장기 흥행작 간의 차이를 분석할 수 있습니다.")
