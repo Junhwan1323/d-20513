@@ -1,7 +1,6 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import scipy.stats as stats
 import seaborn as sns
 from sklearn.linear_model import LinearRegression
 from sklearn.metrics import (
@@ -99,7 +98,7 @@ def load_and_train():
         }
     )
 
-    return model, feature_cols, metrics, coef_df, eval_df, len(train_df), len(test_df)
+    return model, feature_cols, metrics, coef_df, eval_df, train_df, test_df
 
 
 def encode_user_input(carat, depth, table, cut, color, clarity, feature_cols):
@@ -126,13 +125,15 @@ def encode_user_input(carat, depth, table, cut, color, clarity, feature_cols):
 # 3. Main Application
 # ---------------------------------------------------------
 try:
-    model, feature_cols, metrics, coef_df, eval_df, n_train, n_test = load_and_train()
+    model, feature_cols, metrics, coef_df, eval_df, train_df, test_df = load_and_train()
 except FileNotFoundError:
     st.error(
         "데이터 파일(`diamonds_train-v2.csv`, `diamonds_test-v2.csv`)을 찾을 수 없습니다. "
         "GitHub 저장소 최상위 경로에 두 CSV 파일을 `main.py`와 함께 업로드해 주세요."
     )
     st.stop()
+
+n_train, n_test = len(train_df), len(test_df)
 
 st.title("💎 다이아몬드 가격 예측 및 회귀 분석 대시보드")
 st.caption(
@@ -165,12 +166,11 @@ st.sidebar.caption(f"로그 예측값 ln(price): `{pred_log_val:.4f}` | MAE 오�
 # ---------------------------------------------------------
 # Tabs: Detailed Analytical Report
 # ---------------------------------------------------------
-tab1, tab2, tab3, tab4 = st.tabs(
+tab1, tab2, tab3 = st.tabs(
     [
         "1️⃣ 모델 성능 및 예측 시뮬레이터",
         "2️⃣ 회귀 계수 및 등급별 가격 배율",
-        "3️⃣ 잔차 분석 및 가격대별 오차",
-        "4️⃣ 데이터 정제 및 전처리 설계 요약",
+        "3️⃣ 데이터 정제 및 전처리 상세 파이프라인",
     ]
 )
 
@@ -203,8 +203,8 @@ with tab1:
     with col_right:
         st.markdown("#### 테스트 세트 실제 예측 비교 샘플 (상위 10건)")
         preview = eval_df[["actual_dollar", "pred_dollar", "res_dollar"]].head(10).copy()
-        preview.columns = ["실제 가격 ($)", "예측 가격 ($)", "잔차 (실제-예측 $)"]
-        preview["오차율 (%)"] = (preview["잔차 (실제-예측 $)"].abs() / preview["실제 가격 ($)"] * 100).round(2)
+        preview.columns = ["실제 가격 ($)", "예측 가격 ($)", "오차 (실제-예측 $)"]
+        preview["오차율 (%)"] = (preview["오차 (실제-예측 $)"].abs() / preview["실제 가격 ($)"] * 100).round(2)
         st.dataframe(preview.round(2), use_container_width=True, hide_index=True)
 
 # === Tab 2: Regression Coefficients ===
@@ -235,82 +235,106 @@ with tab2:
         display_coef.columns = ["변수명", "회귀 계수 (Log)", "가격 배율 exp(w)", "기준 대비 변화율 (%)"]
         st.dataframe(display_coef.round(4), use_container_width=True, hide_index=True, height=450)
 
-# === Tab 3: Residual Analysis ===
+# === Tab 3: Detailed Preprocessing Documentation ===
 with tab3:
-    st.subheader("잔차(Residual = 실제값 - 예측값) 진단 및 가격대별 오차 분석")
+    st.subheader("1단계. 원본 데이터 정제(Data Cleaning) 상세 이력")
+    st.markdown("원본 `diamonds.csv` **53,940행**에서 물리적·통계적 오류 데이터 총 **173행(0.32%)**을 제거하여 **53,767행**을 확보했습니다.")
 
-    # Price tier table
-    eval_tier = eval_df.copy()
-    eval_tier["abs_err"] = eval_tier["res_dollar"].abs()
-    eval_tier["pct_err"] = eval_tier["abs_err"] / eval_tier["actual_dollar"] * 100
-    eval_tier["tier"] = pd.cut(
-        eval_tier["actual_dollar"],
-        bins=[0, 1000, 3000, 6000, 10000, 20000],
-        labels=["$1,000 미만", "$1,000 ~ $3,000", "$3,000 ~ $6,000", "$6,000 ~ $10,000", "$10,000 초과"],
+    cleaning_tbl = pd.DataFrame(
+        [
+            ["원본 데이터", "초기 데이터 로드 (결측치 Null 0건 확인)", "-", "53,940행"],
+            ["정제 1단계", "완전 중복 행 제거 (`drop_duplicates()`, 동일 스펙·가격 레코드 중 1건 유지)", "-146행", "53,794행"],
+            ["정제 2단계", "치수 `0` 이상치 제거 (`x == 0` 또는 `y == 0` 또는 `z == 0`인 물리적 불가 데이터)", "-19행", "53,775행"],
+            ["정제 3단계", "극단적 입력 오류 제거 (소수점 밀림 `y=58.90, z=31.80, y=31.80` 및 `depth` 계산식 불일치)", "-8행", "53,767행"],
+        ],
+        columns=["단계", "처리 내용 및 기준", "제거 행 수", "잔여 행 수"],
     )
-    tier_tbl = (
-        eval_tier.groupby("tier", observed=False)
-        .agg(
-            표본수=("actual_dollar", "count"),
-            평균실제가격=("actual_dollar", "mean"),
-            MAE_달러=("abs_err", "mean"),
-            RMSE_달러=("abs_err", lambda x: np.sqrt(np.mean(x**2))),
-            MAPE_퍼센트=("pct_err", "mean"),
-        )
-        .reset_index()
-    )
-    tier_tbl.columns = ["실제 가격 구간", "표본 수", "구간 평균 가격 ($)", "MAE ($)", "RMSE ($)", "MAPE (%)"]
-    st.dataframe(tier_tbl.round(2), use_container_width=True, hide_index=True)
+    st.dataframe(cleaning_tbl, use_container_width=True, hide_index=True)
 
     st.markdown("---")
-    fig3, axes = plt.subplots(1, 3, figsize=(15, 4.5))
-
-    # Plot 1: Residuals vs Fitted (Log)
-    axes[0].scatter(eval_df["pred_log"], eval_df["res_log"], alpha=0.15, s=8, color="#2b5c8f")
-    axes[0].axhline(0, color="#d62728", linestyle="--", linewidth=1.2)
-    axes[0].set_title("Residuals vs. Fitted (Log Scale)")
-    axes[0].set_xlabel("Predicted Log Price")
-    axes[0].set_ylabel("Log Residual")
-
-    # Plot 2: Residuals vs Fitted (Dollar)
-    axes[1].scatter(eval_df["pred_dollar"], eval_df["res_dollar"], alpha=0.15, s=8, color="#2b5c8f")
-    axes[1].axhline(0, color="#d62728", linestyle="--", linewidth=1.2)
-    axes[1].set_title("Residuals vs. Fitted (Dollar Scale)")
-    axes[1].set_xlabel("Predicted Price ($)")
-    axes[1].set_ylabel("Dollar Residual ($)")
-
-    # Plot 3: Normal Q-Q Plot
-    stats.probplot(eval_df["res_log"], dist="norm", plot=axes[2])
-    axes[2].get_lines()[0].set_markerfacecolor("#2b5c8f")
-    axes[2].get_lines()[0].set_markeredgecolor("none")
-    axes[2].get_lines()[0].set_alpha(0.3)
-    axes[2].get_lines()[0].set_markersize(4)
-    axes[2].get_lines()[1].set_color("#d62728")
-    axes[2].set_title("Normal Q-Q Plot (Log Residuals)")
-
-    plt.tight_layout()
-    st.pyplot(fig3)
-
-    st.warning(
-        "**한계점 요약:** $6,000 미만 구간(전체의 78.5%)에서는 MAE가 $87~$402 수준으로 안정적이나, "
-        "$10,000 초과 고가 구간에서는 캐럿과 등급 간 비선형 교호작용으로 인해 과대 예측(RMSE $2,159)이 발생합니다."
-    )
-
-# === Tab 4: Methodology Summary ===
-with tab4:
-    st.subheader("데이터 정제 및 전처리 파이프라인 요약")
+    st.subheader("2단계. 변수 선택 (B 조합) 및 다중공선성(VIF) 해결")
     st.markdown(
         """
-        1. **데이터 정제 (53,940행 → 53,767행, 총 173행 제거)**
-           - 완전 중복 레코드 146행 제거 (1건 유지)
-           - 치수(`x`, `y`, `z`) 중 하나라도 `0`인 물리적 불가능 데이터 19행 제거
-           - 소수점 오기입(`y=58.90`, `z=31.80`, `y=31.80`) 및 `depth` 공식 불일치 극단 이상치 8행 제거
-        2. **변수 선택 (B 조합: 다중공선성 제거)**
-           - `carat` 및 `depth`와 극심한 다중공선성(`VIF > 880`)을 유발하는 `x, y, z` 제외
-           - 최종 독립변수 6개(`carat`, `depth`, `table`, `cut`, `color`, `clarity`) 사용 시 잔여 수치형 변수 `VIF = 1.05 ~ 1.15` 확보
-        3. **전처리 및 80:20 층화 분할**
-           - `carat`, `price`: 지수적 곡선 관계를 직선으로 변환하고 음수 가격 예측(`$0` 미만)을 방지하기 위해 자연로그(`ln`) 변환
-           - `log_carat`, `depth`, `table`: `Train` 세트 기준으로만 `StandardScaler` 적합 후 `Test` 세트 변환 (데이터 누수 방지)
-           - `cut`, `color`, `clarity`: `OneHotEncoder(drop='first')` 적용 (기준 범주: `Fair`, `D`, `I1`)
+        - **제외 변수 (`x`, `y`, `z` — 3개 삭제):** 다이아몬드의 가로·세로·높이 치수는 무게(`carat`) 및 깊이 비율(`depth`)과 강한 수학적 종속 관계를 가지며, 포함 시 **VIF > 880**의 극심한 다중공선성을 유발하여 회귀 계수를 왜곡하므로 제외했습니다.
+        - **최종 선택 변수 (독립변수 6개 + 타깃 1개):** `carat`, `depth`, `table`, `cut`, `color`, `clarity` $\\rightarrow$ 타깃 `price`
+        - **다중공선성 안정화 검증:** `x, y, z` 제거 후 잔여 수치형 독립변수(`log_carat`, `depth`, `table`)의 **VIF는 모두 1.05 ~ 1.15** 범위로 낮아져 개별 회귀 계수의 통계적 신뢰성을 확보했습니다.
         """
     )
+
+    st.markdown("---")
+    st.subheader("3단계. 변수 유형별 수학적 변환 및 인코딩 규칙")
+
+    prep_tbl = pd.DataFrame(
+        [
+            [
+                "수치형 독립변수",
+                "carat",
+                "1) 자연로그 변환 ln(carat)\n2) 표준화 (StandardScaler)",
+                "우측 편향 분포와 가격과의 지수적 곡선 관계를 선형(직선) 관계로 변환 후 단위 통일",
+            ],
+            [
+                "수치형 독립변수",
+                "depth, table",
+                "표준화 (StandardScaler)",
+                "이미 좌우 대칭에 가까운 비율(%) 데이터이므로 로그 변환 없이 스케일링만 수행",
+            ],
+            [
+                "범주형 독립변수",
+                "cut, color, clarity",
+                "원-핫 인코딩\nOneHotEncoder(drop='first')",
+                "등급 간 가격 상승폭의 비균등성을 반영하며, 더미 변수 함정(다중공선성) 방지를 위해 기준 범주(Fair, D, I1) 1개씩 제거 (총 17개 더미 열 생성)",
+            ],
+            [
+                "타깃 변수 (종속)",
+                "price",
+                "학습: 자연로그 변환 ln(price)\n예측: 지수 역변환 exp(y_pred)",
+                "소형 다이아몬드의 음수($0 미만) 가격 예측 원천 차단 및 비율(%) 단위 가격 변동 반영",
+            ],
+        ],
+        columns=["변수 구분", "대상 변수", "적용 기법", "적용 근거 및 세부 규칙"],
+    )
+    st.dataframe(prep_tbl, use_container_width=True, hide_index=True)
+
+    st.markdown("---")
+    st.subheader("4단계. 데이터 분할(80:20 층화 분할) 및 데이터 누수 방지")
+    col_s1, col_s2 = st.columns([1.1, 1])
+
+    with col_s1:
+        st.markdown(
+            """
+            - **분할 비율 및 방식:** 전체 53,767행을 타깃 `price`의 **10분위수(Decile) 기준 층화 추출(`stratify`)**로 **80% 학습 세트(43,013행)**와 **20% 테스트 세트(10,754행)**로 분할했습니다.
+            - **데이터 누수(Data Leakage) 차단:** `StandardScaler`의 평균($\\mu$)과 표준편차($\\sigma$) 및 `OneHotEncoder`의 범주 매핑은 **오직 학습 세트(`Train`)에서만 `fit()`** 하여 산출했으며, 테스트 세트(`Test`)와 웹앱 사용자 입력값에는 학습 세트의 기준값을 그대로 `transform()` 적용합니다.
+            - **학습 세트 표준화 기준값 (`Train` 43,013행 산출):**
+              - `ln(carat)`: 평균 = `-0.39589578`, 표준편차 = `0.58550174`
+              - `depth`: 평균 = `61.74957338`, 표준편차 = `1.42942702`
+              - `table`: 평균 = `57.45633646`, 표준편차 = `2.23149751`
+            """
+        )
+
+    with col_s2:
+        split_comp = pd.DataFrame(
+            {
+                "통계량": ["데이터 행 수", "평균 가격 ($)", "중앙값 가격 ($)", "표준편차 ($)", "최솟값 ($)", "최댓값 ($)"],
+                "Train 세트 (80%)": [
+                    f"{len(train_df):,}행",
+                    f"${train_df['price'].mean():,.2f}",
+                    f"${train_df['price'].median():,.2f}",
+                    f"${train_df['price'].std():,.2f}",
+                    f"${train_df['price'].min():,.2f}",
+                    f"${train_df['price'].max():,.2f}",
+                ],
+                "Test 세트 (20%)": [
+                    f"{len(test_df):,}행",
+                    f"${test_df['price'].mean():,.2f}",
+                    f"${test_df['price'].median():,.2f}",
+                    f"${test_df['price'].std():,.2f}",
+                    f"${test_df['price'].min():,.2f}",
+                    f"${test_df['price'].max():,.2f}",
+                ],
+            }
+        )
+        st.markdown("**층화 분할 전후 가격 분포 검증표**")
+        st.dataframe(split_comp, use_container_width=True, hide_index=True)
+
+    with st.expander("🔎 전처리 완료된 학습 데이터(`diamonds_train-v2.csv`) 실제 피처 구조 미리보기 (상위 5행)"):
+        st.dataframe(train_df.head(5).round(4), use_container_width=True)
