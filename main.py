@@ -1,7 +1,3 @@
-
-면목고등학교 채팅은 Gemini 모델을 개선하는 데 사용되지 않습니다. Gemini는 사람이 아니며, 인물 등에 관한 정보 제공 시 실수를 할 수 있으니 대답을 다시 한번 확인하세요. 개인 정보 보호 및 Gemini새 창에서 열기
-
-PY 아이콘
 main
 import streamlit as st
 import pandas as pd
