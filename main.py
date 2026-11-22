@@ -1,18 +1,17 @@
-main
-import streamlit as st
-import pandas as pd
-import numpy as np
 import matplotlib.pyplot as plt
-import seaborn as sns
+import numpy as np
+import pandas as pd
 import scipy.stats as stats
+import seaborn as sns
 from sklearn.linear_model import LinearRegression
-from sklearn.model_selection import KFold, cross_val_score
 from sklearn.metrics import (
-    mean_squared_error,
     mean_absolute_error,
-    r2_score,
     mean_absolute_percentage_error,
+    mean_squared_error,
+    r2_score,
 )
+from sklearn.model_selection import KFold, cross_val_score
+import streamlit as st
 
 # ---------------------------------------------------------
 # 1. Page Configuration
